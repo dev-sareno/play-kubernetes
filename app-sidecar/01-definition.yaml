@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-cm
+data:
+  nginx.conf: |
+    server {
+      listen          80;
+      server_name     _;
+
+      access_log      /var/log/nginx/localhost/access.log;
+      error_log       /var/log/nginx/localhost/error.log;
+      
+      location / {
+          return 200 'Hello World!';
+          add_header Content-Type text/plain;
+      }
+    }
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-flask
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-flask
+  template:
+    metadata:
+      name: nginx-flask
+      labels:
+        app: nginx-flask
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - name: nginx-http
+          containerPort: 80
+        volumeMounts:
+        - name: app-volume
+          mountPath: /var/log/nginx/localhost
+        - name: nginx-conf
+          mountPath: /etc/nginx/conf.d
+      - name: flask
+        image: devsareno/flask-filereader
+        ports:
+        - name: flask-http
+          containerPort: 8000
+        env:
+          - name: APP_FILE_PATH
+            value: /app/file/flask/access.log
+        volumeMounts:
+        - name: app-volume
+          mountPath: /app/file/flask
+      volumes:
+      - name: app-volume
+        hostPath:
+          path: app
+          type: DirectoryOrCreate
+      - name: nginx-conf
+        configMap:
+          name: nginx-cm
+          items:
+          - key: nginx.conf
+            path: my-custom-config.conf # nginx will read all *.conf files under /etc/nginx/config.d/
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-flask-svc
+spec:
+  type: NodePort
+  selector:
+    app: nginx-flask
+  ports:
+  - port: 80
+    targetPort: nginx-http
+    nodePort: 30100
+    name: nginx-http
+  - port: 8000
+    targetPort: flask-http
+    nodePort: 30101
+    name: flask-http
