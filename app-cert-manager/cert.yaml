@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: certmgr.sareno.dev
+  namespace: default
+spec:
+  secretName: certmgr.sareno.dev
+  issuerRef:
+    name: acme-issuer
+    kind: ClusterIssuer
+  dnsNames:
+  - certmgr.sareno.dev
